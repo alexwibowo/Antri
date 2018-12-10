@@ -2,14 +2,19 @@ package org.isolution.antri;
 
 import net.openhft.chronicle.threads.LongPauser;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class DefaultAntri implements Antri {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultAntri.class);
+
     private final SingleAntri[] queues;
     private final ThreadPoolExecutor executor;
     private final AtomicInteger threadIndexCounter = new AtomicInteger(0);
@@ -27,7 +32,11 @@ public final class DefaultAntri implements Antri {
                 numberOfQueues, numberOfQueues,
                 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                runnable -> new WorkerThread(pauser, threadIndexCounter.getAndIncrement())
+                runnable -> {
+                    final WorkerThread workerThread = new WorkerThread(pauser, threadIndexCounter.getAndIncrement());
+                    workerThread.startWorker();
+                    return workerThread;
+                }
         );
         executor.prestartAllCoreThreads();
     }
@@ -48,28 +57,41 @@ public final class DefaultAntri implements Antri {
     class WorkerThread extends Thread {
         private final LongPauser pauser;
         private final int queueIndex;
+        private volatile AtomicBoolean running = new AtomicBoolean();
 
         WorkerThread(final LongPauser pauser,
                      final int index) {
             this.pauser = pauser;
             this.queueIndex = index;
+            this.running.set(true);
+        }
+
+        WorkerThread startWorker() {
+            running.set(true);
+            return this;
+        }
+
+        WorkerThread stopWorker() {
+            running.set(false);
+            return this;
         }
 
         @Override
         public void run() {
-            final Runnable nextTask = queues[queueIndex].next();
-
-            if (nextTask != null) {
-                nextTask.run();
-                pauser.reset();
-            }else{
-                pauser.pause();
+            while (running.get() && !Thread.currentThread().isInterrupted()) {
+                final Runnable nextTask = queues[queueIndex].next();
+                if (nextTask != null) {
+                    nextTask.run();
+                    pauser.reset();
+                }else{
+                    pauser.pause();
+                }
             }
         }
     }
 
 
-    private static class SingleAntri extends Thread{
+    private static class SingleAntri {
         private final ConcurrentLinkedQueue<Runnable> tasks;
 
         private SingleAntri() {

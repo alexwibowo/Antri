@@ -12,6 +12,5 @@ public interface Antri {
      * Key <strong>must</strong> implements {@link #hashCode()}
      */
     interface Key {
-        String name();
     }
 }

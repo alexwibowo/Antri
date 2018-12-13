@@ -4,32 +4,27 @@
  * This is a general purpose Gradle build.
  * Learn how to create Gradle builds at https://guides.gradle.org/creating-new-gradle-builds/
  */
-apply plugin:'java'
-apply plugin: 'org.junit.platform.gradle.plugin'
 
 buildscript {
     repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
         mavenLocal()
         mavenCentral()
     }
-
-    dependencies {
-        /** Configure Gradle to run JUnit 5 */
-        classpath "org.junit.platform:junit-platform-gradle-plugin:${junitGradlePluginVersion}"
-        classpath("net.ltgt.gradle:gradle-apt-plugin:${gradleAptPluginVersion}")
-    }
 }
 
+plugins {
+    id 'java'
+    id 'idea'
+}
 
 repositories {
     mavenLocal()
     mavenCentral()
 }
 
-
+test {
+    useJUnitPlatform()
+}
 
 dependencies {
     compile('net.openhft:chronicle-threads:1.16.0'){
@@ -44,16 +39,18 @@ dependencies {
     testCompile "org.apache.logging.log4j:log4j-api:${log4jVersion}"
     testCompile "org.apache.logging.log4j:log4j-core:${log4jVersion}"
     testCompile "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-api:${junitJupiterEngineVersion}"
-    testCompile "org.junit.jupiter:junit-jupiter-engine:${junitJupiterEngineVersion}"
+
+    implementation platform("org.junit:junit-bom:${junitVersion}")
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine"
 
     /*      The junit-vintage-engine dependency adds support for unit tests that use JUnit 4 or JUnit 3. */
-    testCompile "org.junit.vintage:junit-vintage-engine:${junitVintageEngineVersion}"
+    testImplementation "org.junit.vintage:junit-vintage-engine"
 
     /* The junit-platform-launcher dependency provides a public API for configuring and launching tests. This API is typically used by IDEs and build tools.*/
-    testCompile "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
+    testImplementation "org.junit.platform:junit-platform-launcher"
 
     /* The junit-platform-runner dependency allows us to run tests and test suites in a JUnit 4 environment. */
-    testCompile "org.junit.platform:junit-platform-runner:${junitPlatformVersion}"
-
+    testImplementation "org.junit.platform:junit-platform-runner"
 }

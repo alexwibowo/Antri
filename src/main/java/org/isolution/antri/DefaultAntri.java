@@ -31,11 +31,12 @@ public final class DefaultAntri implements Antri {
         executor = new ThreadPoolExecutor(
                 numberOfQueues, numberOfQueues,
                 0L, TimeUnit.MILLISECONDS,
+                // the queue to use for holding tasks before they are
+                // executed. This queue will hold only the {@code Runnable}
+                // tasks submitted by the {@code execute} method
                 new LinkedBlockingQueue<>(),
                 runnable -> {
-                    final WorkerThread workerThread = new WorkerThread(pauser, threadIndexCounter.getAndIncrement());
-                    workerThread.startWorker();
-                    return workerThread;
+                    return new WorkerThread(pauser, threadIndexCounter.getAndIncrement());
                 }
         );
         executor.prestartAllCoreThreads();
@@ -59,28 +60,16 @@ public final class DefaultAntri implements Antri {
     class WorkerThread extends Thread {
         private final LongPauser pauser;
         private final int queueIndex;
-        private volatile AtomicBoolean running = new AtomicBoolean();
 
         WorkerThread(final LongPauser pauser,
                      final int index) {
             this.pauser = pauser;
             this.queueIndex = index;
-            this.running.set(true);
-        }
-
-        WorkerThread startWorker() {
-            running.set(true);
-            return this;
-        }
-
-        WorkerThread stopWorker() {
-            running.set(false);
-            return this;
         }
 
         @Override
         public void run() {
-            while (running.get() && !Thread.currentThread().isInterrupted()) {
+            while (!Thread.currentThread().isInterrupted()) {
                 final Runnable nextTask = queues[queueIndex].next();
                 if (nextTask != null) {
                     nextTask.run();

@@ -20,6 +20,7 @@ class DefaultAntriTest {
         final Antri antri = new DefaultAntri(1);
         antri.execute(new StringKey("simpleKey"), () -> resultSink.set("Hello World"));
         await().atMost(120, TimeUnit.MILLISECONDS).until(() -> Objects.equals(resultSink.get(), "Hello World"));
+        antri.stop();
     }
 
     @Test
@@ -31,6 +32,7 @@ class DefaultAntriTest {
 
         await().atMost(120, TimeUnit.MILLISECONDS).until(() -> Objects.equals(resultSink.size(), 2));
         assertThat(resultSink).contains("Hello there, sir", "Would you like a cup of tea?");
+        antri.stop();
     }
 
     @Test
@@ -40,13 +42,15 @@ class DefaultAntriTest {
         final int numMessages = 1_000;
         final int sleepDurationMillis = 10;
 
-        enqueueTasks(resultSink, numMessages, sleepDurationMillis, 1);
+        final DefaultAntri antri = new DefaultAntri(1);
+        enqueueTasks(resultSink, numMessages, sleepDurationMillis, antri);
 
         final int totalWaitMillis = numMessages * sleepDurationMillis;
         await().atMost(totalWaitMillis + 3_000, TimeUnit.MILLISECONDS).until(() -> Objects.equals(resultSink.size(), numMessages));
         for (int i = 0; i < numMessages; i++) {
             assertThat(resultSink).contains("message number " + i);
         }
+        antri.stop();
     }
 
     @DisplayName("Test queueing tasks on Antri with multiple queues. Should complete faster than single queue.")
@@ -58,7 +62,8 @@ class DefaultAntriTest {
         final int numMessages = 1_000;
         final int sleepDurationMillis = 10;
 
-        enqueueTasks(resultSink, numMessages, sleepDurationMillis, numberOfQueues);
+        final DefaultAntri antri = new DefaultAntri(numberOfQueues);
+        enqueueTasks(resultSink, numMessages, sleepDurationMillis, antri);
 
         final int totalSingleThreadWaitMillis = numMessages * sleepDurationMillis;
         final int totalMultiThreadWaitMillis = totalSingleThreadWaitMillis / numberOfQueues;
@@ -66,11 +71,14 @@ class DefaultAntriTest {
         for (int i = 0; i < numMessages; i++) {
             assertThat(resultSink).contains("message number " + i);
         }
+        antri.stop();
     }
 
-    private void enqueueTasks(ConcurrentLinkedQueue<String> resultSink, int numMessages, int sleepDurationMillis, int i2) {
+    private void enqueueTasks(final ConcurrentLinkedQueue<String> resultSink,
+                              final int numMessages,
+                              final int sleepDurationMillis,
+                              final DefaultAntri antri) {
         final CountDownLatch trigger = new CountDownLatch(1);
-        final Antri antri = new DefaultAntri(i2);
         for (int i = 0; i < numMessages; i++) {
             final StringKey simpleKey = new StringKey("simpleKey" + i);
             final String message = "message number " + i;

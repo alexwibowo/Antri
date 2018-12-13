@@ -44,8 +44,10 @@ public final class DefaultAntri implements Antri {
     @Override
     public void execute(@NotNull final Key key,
                         @NotNull final Runnable task) {
-        int queueIndex = key.hashCode() % queues.length;
-        queues[queueIndex].enlist(task);
+        int n = key.hashCode();
+        n = (n >>> 23) ^ (n >>> 9) ^ n;
+        n = (n & 0x7FFF_FFFF) % queues.length;
+        queues[n].enlist(task);
     }
 
     @Override
